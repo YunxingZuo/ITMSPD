@@ -21,7 +21,7 @@ class SymmOp(object):
 
     # this method is really used to construct the class
     @staticmethod
-    def rotations_combine_translation(rotations_matrix, translation_vec, symprec=1e-5):
+    def rotations_combine_translations(rotations_matrix, translation_vec, symprec=1e-5):
         rotations_matrix = np.array(rotations_matrix)
         translation_vec = np.array(translation_vec)
         if rotations_matrix.shape != (3, 3):

@@ -7,6 +7,7 @@ import itertools
 
 from lattice import Lattice
 from element import Element
+from wycoffs import *
 from Symmetry_Operation import *
 
 import spglib
@@ -264,7 +265,7 @@ class Structure(object):
             is_found = False
             for j in range(i):
                 for r, t in zip(rotations, translations):
-                    symmop = SymmOp.rotations_combine_translation(r, t)
+                    symmop = SymmOp.rotations_combine_translations(r, t)
                     is_found = symmop.whether_symmetrical(p, scaled_positions[j], lattice_vectors)
                     if is_found:
                         identical_atoms[i] = j
@@ -283,6 +284,29 @@ class Structure(object):
             if i == eq:
                 indep_atoms.append(i)
         return np.array(indep_atoms, dtype='intc')
+
+    def atomic_wyckoff_letters(self):
+        identical_atoms = self.get_identical_atoms_and_operations()[0]
+        independent_atoms = self.get_independent_atoms()
+        scaled_positions = self.frac_positions
+        spg = SpaceGroup(self.get_spacegroup().split()[0])
+        spg_int = spg.int_number
+        wyckoff_letters = np.array([''] * len(identical_atoms))
+        if spg_int == 146 or spg_int == 148 or spg_int == 155 or spg_int == 160 or spg_int == 161 or spg_int == 166 or spg_int == 167:
+            spg = whether_plus_H(spg, identical_atoms, independent_atoms, scaled_positions)
+        for i in independent_atoms:
+            homoatoms = spg.get_orbit(scaled_positions[i])
+            mul = len(homoatoms)
+            is_found = False
+            for j in homoatoms:
+                if special_positions(spg.symbol, mul, j):
+                    is_found = True
+                    pos = j
+                    break
+            if is_found:
+                letter = special_positions(spg.symbol, mul, pos)
+                wyckoff_letters[identical_atoms == i] = letter
+        return wyckoff_letters
 
     @staticmethod
     def import_from_vasp(filename):
