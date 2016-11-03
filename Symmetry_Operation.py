@@ -67,7 +67,7 @@ class SymmOp(object):
         return np.einsum(einsum_string, *einsum_args)
 
     # check if two points are identical
-    def whether_symmetrical(self, point_a, point_b, lattice_constant, symprec = 1e-8):
+    def whether_symmetrical(self, point_a, point_b, lattice_constant, symprec = 1e-3):
         diff = self.operate(point_a) - point_b
 
         # exclude the error of integer times of directions of lattice, like [0.99999, 0., 0.] 
