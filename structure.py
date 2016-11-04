@@ -453,28 +453,41 @@ class Structure(object):
         positions = []
         atoms = []
         with open(filename) as f:
-            for line in f:
-                if (line.find('length_a') >= 0):
-                    a = float(line.split()[1])
-                    continue
-                if (line.find('length_b') >= 0):
-                    b = float(line.split()[1])
-                    continue
-                if (line.find('length_c') >= 0):
-                    c = float(line.split()[1])
-                    continue
-                if (line.find('angle_alpha') >= 0):
-                    alpha = float(line.split()[1])
-                    continue
-                if (line.find('angle_beta') >= 0):
-                    beta = float(line.split()[1])
-                    continue
-                if (line.find('angle_gamma') >= 0):
-                    gamma = float(line.split()[1])
-                    continue
-                if (line.find('Biso') >= 0):
-                    positions.append([float(coord) for coord in line.split()[2:5]])
-                    atoms.append(Element(line.split()[7]))
+            lines = f.readlines()
+        cell_info = {}
+        atom_info = {}
+        for i, line in enumerate(lines):
+            if line.find('_cell_') >= 0:
+                key = line.split()[0]
+                value = float(line.split()[1])
+                cell_info[key] = value
+            if line.find('_atom_') >= 0:
+                key = line.split()[0]
+                value = i
+                atom_info[key] = value
+
+        a = cell_info['_cell_length_a']
+        b = cell_info['_cell_length_b']
+        c = cell_info['_cell_length_c']
+        alpha = cell_info['_cell_angle_alpha']
+        beta = cell_info['_cell_angle_beta']
+        gamma = cell_info['_cell_angle_gamma']
+
+        l = list(atom_info.values())
+        l.sort()
+        min_index = l[0]
+        max_index = l[-1]
+
+        symbol = atom_info['_atom_site_type_symbol'] - min_index
+        x = atom_info['_atom_site_fract_x'] - min_index
+        y = atom_info['_atom_site_fract_y'] - min_index
+        z = atom_info['_atom_site_fract_z'] - min_index
+
+        for i in range(max_index + 1, len(lines)):
+            line = lines[i].split()
+            positions.append([float(line[x]), float(line[y]), float(line[z])])
+            atoms.append(line[symbol])
+
         lattice = Lattice.from_lengths_and_angles(a, b, c, alpha, beta, gamma)
         return Structure(lattice, positions, atoms)
 
