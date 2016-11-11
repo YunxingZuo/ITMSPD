@@ -457,11 +457,11 @@ class Structure(object):
         cell_info = {}
         atom_info = {}
         for i, line in enumerate(lines):
-            if line.find('_cell_') >= 0:
+            if (line.find('_cell_length_') >= 0) or (line.find('_cell_angle_') >= 0):
                 key = line.split()[0]
                 value = float(line.split()[1])
                 cell_info[key] = value
-            if line.find('_atom_') >= 0:
+            if line.find('_atom_site_') >= 0:
                 key = line.split()[0]
                 value = i
                 atom_info[key] = value
