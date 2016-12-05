@@ -130,8 +130,4 @@ def create_lattice(self, a_length, b_length, c_length, lattice_system):
         return lattice
 
     else:
-        raise ValueError("Please make sure the name of lattice system is correct.")
-
-def func(sp):
-    if sp[0].lower() = 'p':
-        
+        raise ValueError("Please make sure the name of lattice system is correct.")        

@@ -1,58 +1,11 @@
 # coding: utf-8
+# Copyright © 2016 YunXing Zuo
 
 import numpy as np
-from groups import *
 
-# rooturl = 'http://www.cryst.ehu.es/cgi-bin/cryst/programs/nph-wp-list'
-
-# rootreq = urllib2.Request(rooturl)
-
-# rootresponse = urllib2.urlopen(rootreq)
-
-# rootpage = response.read()
-
-# p = re.compile(r'<a href="/cgi-bin/cryst/programs/nph-wp-list(\?.*?)">')
-
-# url_list = p.findall(rootpage)
-
-# sp_list = []
-
-# sp_dict = {}
-
-# for url in url_list:
-    # suburl = rooturl  + url
-    # subreq = urllib2.Request(suburl)
-    # subresponse = urllib2.urlopen(subreq)
-    # subpage = subresponse.read()
-    # sp_str = ''
-    # p_sub = re.compile(r'<sub>(\d)</sub>')
-    # new_subpage = p_sub.sub(r'<sub>_\1</sub>', subpage)
-    # sp_p = re.compile(r'<(?:i|sub)>(/?\D|[_-]?\d*)</(?:i|sub)>(-?\d*)')
-    # h_axes = re.compile(r'h axes')
-    # axis_c = re.compile(r'unique axis c')
-    # axis_b = re.compile(r'unique axis b')
-    # wyc_num = re.compile(r'<td align=center>(\d*)</td><td align=center>(\D)<\td>.*?')
-    # #wyc_pos = re.compile(r'<nobr><a href=.*?>(\(.{,20}\))</a></nobr>')
-    # for i in sp_p.finall(new_subpage):
-        # for j in i:
-            # sp_str += j
-    # if h_axes.search(subpage):
-        # sp_str += 'H'
-    # elif axis_b.search(subpage):
-        # sp_str += '(b)'
-    # elif axis_c.search(subpage):
-        # sp_str += '(c)'
-    # if sp_str in sp_list:
-        # sp_str += 's'
-    # sp_dict[sp_str] = {}
-    # for k in wyc_num.findall(subpage):
-        # sp_dict[sp_str][k[1]] = int(k[0])
-    # sp_list.append(sp_str)
-
-# p_num_wyc = re.compile(r'<td align=center>(\d*)</td><td align=center>(\D)</td>')
-
-# p_pos = re.compile(r'<nobr><a href=.*?>(\(.{,20}\))</a></nobr>')
-
+__author__ = 'YunXing Zuo'
+__email__ = 'zuoyx@pkusz.edu.cn'
+__date__ = 'Nov. 12, 2016'
 
 def special_positions(symbol, multiplicity, pos):
     if symbol == 'P1':
@@ -7085,12 +7038,3 @@ def sp_230(multiplicity, pos):
             return False
     else:
         return 'h'
-
-def whether_plus_H(spg, identical_atoms, independent_atoms, scaled_positions):
-    for i in independent_atoms:
-        num = list(identical_atoms).count(i)
-        mul = len(spg.get_orbit(scaled_positions[i]))
-        if mul < num:
-            spg = SpaceGroup(spg.symbol + 'H')
-            break
-    return spg

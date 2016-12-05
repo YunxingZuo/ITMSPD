@@ -1990,7 +1990,7 @@ space_group_encoding:
     order: 8
     patterson_symmetry: Cmmm
     point_group: mm2
-  Ccca:
+  Ccce:
     enc: 04aDDObDDOcOOOhODD1OBB
     full_symbol: C2/c2/c2/e
     int_number: 68
@@ -2032,7 +2032,7 @@ space_group_encoding:
     order: 8
     patterson_symmetry: Cmmm
     point_group: mm2
-  Cmma:
+  Cmme:
     enc: 13aDDObODOcODO0
     full_symbol: C2/m2/m2/e
     int_number: 67

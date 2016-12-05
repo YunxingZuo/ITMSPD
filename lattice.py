@@ -115,7 +115,11 @@ class Lattice(object):
     @property
     def c(self):
         return self.__lengths[2]
-    
+
+    @property
+    def abc(self):
+        return (self.__lengths[0], self.__lengths[1], self.__lengths[2])
+
     @property
     def alpha(self):
         return self.__angles[0]
@@ -177,3 +181,36 @@ class Lattice(object):
         Get the Brillouin Zone of the lattice.
         """
         return self.reciprocal_lattice.get_wigner_seitz_cell()
+
+    def get_points_in_sphere(self, frac_points, center, r):
+        recp_len = np.array(self.reciprocal_lattice.abc) / (2 * pi)
+        nmax = float(r) * recp_len + 0.01
+
+        pcoords = self.get_frac_coords(center)
+        center = np.array(center)
+
+        n = len(frac_points)
+        fcoords = np.array(frac_points) % 1
+        indices = np.arange(n)
+
+        mins = np.floor(pcoords - nmax)
+        maxes = np.ceil(pcoords + nmax)
+        arange = np.arange(start=mins[0], stop=maxes[0])
+        brange = np.arange(start=mins[1], stop=maxes[1])
+        crange = np.arange(start=mins[2], stop=maxes[2])
+        arange = arange[:, None] * np.array([1, 0, 0])[None, :]
+        brange = brange[:, None] * np.array([0, 1, 0])[None, :]
+        crange = crange[:, None] * np.array([0, 0, 1])[None, :]
+        images = arange[:, None, None] + brange[None, :, None] + crange[None, None, :]
+
+        shifted_coords = fcoords[:, None, None, None, :] + images[None, :, :, :, :]
+
+        cart_coords = self.get_cart_coords(fcoords)
+        cart_images = self.get_cart_coords(images)
+        coords = cart_coords[:, None, None, None, :] + cart_images[None, :, :, :, :]
+        coords -= center[None, None, None, None, :]
+        coords **= 2
+        d_2 = np.sum(coords, axis = 4)
+
+        within_r = np.where(d_2 <= r ** 2)
+        return shifted_coords[within_r], np.sqrt(d_2[within_r]), indices[within_r[0]]

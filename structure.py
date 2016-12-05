@@ -9,7 +9,7 @@ from lattice import Lattice
 from element import Element
 from wycoffs import *
 from Symmetry_Operation import *
-
+from groups_copy import SpaceGroup
 import spglib
 
 __author__ = 'YunXing Zuo, WeiJi Hsiao'
@@ -217,13 +217,13 @@ class Structure(object):
                     positions[i][j] = 0
         return Structure(vectors, positions, atomic_numbers)
 
-    def get_symmetry_dataset(self, symprec = 1e-3, angle_tolerance = 5):
+    def get_symmetry_dataset(self, symprec = 1e-1, angle_tolerance = 5):
         return spglib.get_symmetry_dataset(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
 
-    def get_symmetry_operations(self, symprec = 1e-3, angle_tolerance = 5):
+    def get_symmetry_operations(self, symprec = 1e-1, angle_tolerance = 5):
         return spglib.get_symmetry(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
 
-    def get_spacegroup(self, symprec = 1e-3, angle_tolerance = 5):
+    def get_spacegroup(self, symprec = 1e-1, angle_tolerance = 5):
         return spglib.get_spacegroup(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
 
     def get_pointgroup(self):
@@ -293,20 +293,23 @@ class Structure(object):
         spg_int = spg.int_number
         wyckoff_letters = np.array([''] * len(identical_atoms))
         if spg_int == 146 or spg_int == 148 or spg_int == 155 or spg_int == 160 or spg_int == 161 or spg_int == 166 or spg_int == 167:
-            spg = whether_plus_H(spg, identical_atoms, independent_atoms, scaled_positions)
+            spg = self.whether_plus_H(spg_int, identical_atoms, independent_atoms, scaled_positions)
         for i in independent_atoms:
-            homoatoms = spg.get_orbit(scaled_positions[i])
-            mul = len(homoatoms)
-            is_found = False
-            for j in homoatoms:
-                if special_positions(spg.symbol, mul, j):
-                    is_found = True
-                    pos = j
-                    break
-            if is_found:
-                letter = special_positions(spg.symbol, mul, pos)
-                wyckoff_letters[identical_atoms == i] = letter
+            letter = spg.get_wyckoff_letter(scaled_positions[i])
+            wyckoff_letters[identical_atoms == i] = letter
         return wyckoff_letters
+
+    def whether_plus_H(self, spg_int, identical_atoms, independent_atoms, scaled_positions):
+        hexagonal = False
+        spg = SpaceGroup.from_int_number(spg_int, hexagonal)
+        for i in independent_atoms:
+            num = list(identical_atoms).count(i)
+            mul = len(spg.get_orbit(scaled_positions[i]))
+            if mul < num:
+                hexagonal = True
+                spg = SpaceGroup.from_int_number(spg_int, hexagonal)
+                break
+        return spg
 
     @staticmethod
     def import_from_vasp(filename):

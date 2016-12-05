@@ -1,17 +1,14 @@
 # coding: utf-8
-# Copyright © 2016 YunXing Zuo, WeiJi Hsiao
+# The MIT License (MIT)
+# Copyright (c) 2011-2012 MIT & LBNL
 
 import numpy as np
-
 from math import ceil
 from math import cos
 from math import sin
 from math import tan
 from math import pi
-
-__author__ = 'YunXing Zuo, WeiJi Hsiao'
-__email__ = 'weiji.hsiao@gmail.com'
-__date__ = 'Oct. 25, 2016'
+import warnings
 
 class HighSymmKpath(object):
     def __init__(self, abc, angles, lattice_system, spg_symbol):
@@ -27,7 +24,7 @@ class HighSymmKpath(object):
             elif "I" in spg_symbol:
                 self.high_symmetry_kpoints = self.bcc()
             else:
-                warn("Unexpected value for spg_symbol: %s" % spg_symbol)
+                warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "tetragonal":
             if "P" in spg_symbol:
@@ -40,7 +37,7 @@ class HighSymmKpath(object):
                 else:
                     self.high_symmetry_kpoints = self.bctet2(c, a)
             else:
-                warn("Unexpected value for spg_symbol: %s" % spg_symbol)
+                warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "orthorhombic":
             a, b, c = self.abc()
@@ -59,10 +56,10 @@ class HighSymmKpath(object):
             elif "I" in spg_symbol:
                 self.high_symmetry_kpoints = self.orci(a, b, c)
 
-            elif "C" in spg_symbol:
+            elif "C" in spg_symbol or "A" in spg_symbol:
                 self.high_symmetry_kpoints = self.orcc(a, b)
             else:
-                warn("Unexpected value for spg_symbol: %s" % spg_symbol)
+                warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "hexagonal":
             self.high_symmetry_kpoints = self.hex()
@@ -94,11 +91,11 @@ class HighSymmKpath(object):
                     elif b * cos(alpha * pi / 180) / c + b ** 2 * sin(alpha * pi / 180) ** 2 / (a ** 2) > 1:
                         self.high_symmetry_kpoints = self.mclc5(a, b, c, alpha * pi / 180)
             else:
-                warn("Unexpected value for spg_symbol: %s" % spg_symbol)
+                warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "triclinic":
             alpha, beta, gamma = self.angles()
-            if alpha > 90 and beta > 90 and min(alpha, beta, gamma) > 90:
+            if alpha >= 90 and beta >= 90 and min(alpha, beta, gamma) >= 90:
                 self.high_symmetry_kpoints = self.tri_1a()
             elif alpha > 90 and beta > 90 and gamma == 90:
                 self.high_symmetry_kpoints = self.tri_2a()
@@ -107,7 +104,7 @@ class HighSymmKpath(object):
             elif alpha < 90 and beta < 90 and gamma == 90:
                 self.high_symmetry_kpoints = self.tri_2b()
             else:
-                warn("Unexpected value for spg_symbol: %s" % spg_symbol)
+                warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
 
     def abc(self):
@@ -136,7 +133,7 @@ class HighSymmKpath(object):
     def fcc(self):
         self.name = "FCC"
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "U": np.array([5.0 / 8.0, 1.0 / 4.0, 5.0 / 8.0]), \
-        "K": np.array([3.0 / 8.0, 3.0 / 8.0, 3.0, 4.0]), "W": np.array([0.5, 1.0 / 4.0, 3.0 / 4.0]), \
+        "K": np.array([3.0 / 8.0, 3.0 / 8.0, 3.0 / 4.0]), "W": np.array([0.5, 1.0 / 4.0, 3.0 / 4.0]), \
         "L": np.array([0.5, 0.5, 0.5]), "X": np.array([0.5, 0.0, 0.5])}
         path = [['\Gamma', 'X', 'W', 'K', '\Gamma', 'L', 'U', 'W', 'L', 'K'], ['U', 'X']]
         return {'kpoints': kpoints, 'path': path}
@@ -178,7 +175,7 @@ class HighSymmKpath(object):
         "M": np.array([-0.5, 0.5, 0.5]), "Z": np.array([eta, eta, -eta]), \
         "N": np.array([0.0, 0.5, 0.0]), "Z_1": np.array([-eta, 1 - eta, eta]), \
         "P": np.array([1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0])}
-        kpath = [['\Gamma', 'X', 'M', '\Gamma', 'Z', 'P', 'N', 'Z_1', 'M'], ['X', 'P']]
+        path = [['\Gamma', 'X', 'M', '\Gamma', 'Z', 'P', 'N', 'Z_1', 'M'], ['X', 'P']]
         return {'kpoints': kpoints, 'path': path}
 
     def bctet2(self, c, a):
@@ -433,11 +430,11 @@ class HighSymmKpath(object):
     def mclc5(self, a, b, c, alpha):
         self.name = "MCLC5"
         zeta = (b ** 2 / a ** 2 + (1 - b * cos(alpha) / c) / (sin(alpha) ** 2)) / 4
-        miu = eta / 2 + b ** 2 / (4 * a ** 2) - b * c * cos(alpha) / (2 * a ** 2)
-        omega = (4 * nu - 1 - b ** 2 * sin(alpha) ** 2 / a ** 2) * c / (2 * b * cos(alpha))
         eta = 1.0 / 2.0 + 2 * zeta * c * cos(alpha) / b
-        delta = zeta * c * cos(alpha) / b + omega / 2 - 1.0 / 4.0
+        miu = eta / 2 + b ** 2 / (4 * a ** 2) - b * c * cos(alpha) / (2 * a ** 2)
         nu = 2 * miu - zeta
+        omega = (4 * nu - 1 - b ** 2 * sin(alpha) ** 2 / a ** 2) * c / (2 * b * cos(alpha))
+        delta = zeta * c * cos(alpha) / b + omega / 2 - 1.0 / 4.0
         rho = 1 - zeta * a ** 2 / b ** 2
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "M": np.array([0.5, 0.0, 0.5]), \
         "F": np.array([nu, nu, omega]), "N": np.array([0.5, 0.0, 0.0]), \

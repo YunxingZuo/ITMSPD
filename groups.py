@@ -1,6 +1,6 @@
 # coding: utf-8
-# Copyright (c) Pymatgen Development Team.
-# Distributed under the terms of the MIT License.
+# The MIT License (MIT)
+# Copyright (c) 2011-2012 MIT & LBNL
 
 from __future__ import division, unicode_literals
 
@@ -26,7 +26,7 @@ import numpy as np
 import warnings
 from monty.serialization import loadfn
 
-from pymatgen.core.operations import SymmOp
+from Symmetry_Operation import SymmOp
 from monty.design_patterns import cached_class
 
 SYMM_DATA = loadfn(os.path.join(os.path.dirname(__file__), "symm_data.yaml"))
@@ -206,6 +206,8 @@ class SpaceGroup(SymmetryGroup):
                 ABBREV_SPACE_GROUP_MAPPING and int_symbol not in \
                 FULL_SPACE_GROUP_MAPPING:
             raise ValueError("Bad international symbol %s" % int_symbol)
+        elif int_symbol in SPACE_GROUP_ENC:
+            int_symbol = int_symbol
         elif int_symbol in ABBREV_SPACE_GROUP_MAPPING:
             int_symbol = ABBREV_SPACE_GROUP_MAPPING[int_symbol]
         elif int_symbol in FULL_SPACE_GROUP_MAPPING:
@@ -213,7 +215,12 @@ class SpaceGroup(SymmetryGroup):
 
         data = SPACE_GROUP_ENC[int_symbol]
 
-        self.symbol = int_symbol
+        if int_symbol in ABBREV_SPACE_GROUP_MAPPING.values():
+            for k, v in ABBREV_SPACE_GROUP_MAPPING.items():
+                if v == int_symbol:
+                    self.symbol = k
+        else:
+            self.symbol = int_symbol
         # TODO: Support different origin choices.
         enc = list(data["enc"])
         inversion = int(enc.pop(0))
