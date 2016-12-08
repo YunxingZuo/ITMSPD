@@ -5213,7 +5213,7 @@ def sp_215_pos(letter):
         return spg.get_orbit([rand(), 0.5, 0.])
     elif letter == 'i':
         x = rand()
-        return spg.get_orbit([x, x, z])
+        return spg.get_orbit([x, x, rand()])
     else:
         return spg.get_orbit([rand(), rand(), rand()])
 
