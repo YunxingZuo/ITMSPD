@@ -5116,7 +5116,6 @@ def sp_211_pos(letter):
         x = rand()
         return spg.get_orbit([x, x, x])
     elif letter == 'g':
-        y = rand()
         return spg.get_orbit([rand(), 0.5, 0.])
     elif letter == 'h':
         y = rand()
