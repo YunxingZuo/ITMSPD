@@ -97,14 +97,15 @@ class Structure(object):
             return False
         if not self.lattice.is_similar_to(other.lattice, tolerance):
             return False
-        for i, self_pos in enumerate(self.frac_positions):
-            for j, other_pos in enumerate(other.frac_positions):
-                if all([abs(diff) < tolerance for diff in np.array(self_pos - other_pos)]):
-                    if self.atomic_symbols[i] != other.atomic_symbols[j]:
-                        return False
-                    break
-            else:
+        if not np.all(np.array(self.atomic_symbols) == np.array(other.atomic_symbols)):
+            return False
+        for self_pos, other_pos in zip(self.frac_positions, other.frac_positions):
+            diff = abs(self_pos - other_pos)
+            exceed_indexes = np.where(diff > 0.5)
+            diff[exceed_indexes] = 1 - diff[exceed_indexes]
+            if np.any(np.linalg.norm(diff) > tolerance):
                 return False
+                break
         return True
 
 
