@@ -8,8 +8,9 @@ import itertools
 from lattice import Lattice
 from element import Element
 from wycoffs import *
+from wykoffsss import *
 from Symmetry_Operation import *
-from groups_copy import SpaceGroup
+from groups import SpaceGroup
 import spglib
 
 __author__ = 'YunXing Zuo, WeiJi Hsiao'
