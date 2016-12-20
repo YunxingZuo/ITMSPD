@@ -80,7 +80,7 @@ class Structure(object):
             strings.append('{:>4s} : {:>16.8f}{:>16.8f}{:>16.8f}'.format(atom.atomic_symbol, *position))
         return '\n'.join(strings)
 
-    def is_similar_to(self, other, tolerance = 1e-5):
+    def is_similar_to(self, other, tolerance = 0.05):
         """
         Returns True if the structure is similar to the given one within a tolerance.
 
@@ -225,7 +225,9 @@ class Structure(object):
         return spglib.get_symmetry(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
 
     def get_spacegroup(self, symprec = 1e-1, angle_tolerance = 5):
-        return spglib.get_spacegroup(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
+        symmetry_dataset = self.get_symmetry_dataset()
+        spg = symmetry_dataset['international'] + symmetry_dataset['choice']
+        return spg
 
     def get_pointgroup(self):
         ro = self.get_symmetry_operations()['rotations']
@@ -290,27 +292,50 @@ class Structure(object):
         identical_atoms = self.get_identical_atoms_and_operations()[0]
         independent_atoms = self.get_independent_atoms()
         scaled_positions = self.frac_positions
-        spg = SpaceGroup(self.get_spacegroup().split()[0])
+        spg = SpaceGroup(self.get_spacegroup())
         spg_int = spg.int_number
         wyckoff_letters = np.array([''] * len(identical_atoms))
-        if spg_int == 146 or spg_int == 148 or spg_int == 155 or spg_int == 160 or spg_int == 161 or spg_int == 166 or spg_int == 167:
-            spg = self.whether_plus_H(spg_int, identical_atoms, independent_atoms, scaled_positions)
         for i in independent_atoms:
             letter = spg.get_wyckoff_letter(scaled_positions[i])
             wyckoff_letters[identical_atoms == i] = letter
         return wyckoff_letters
-
-    def whether_plus_H(self, spg_int, identical_atoms, independent_atoms, scaled_positions):
-        hexagonal = False
-        spg = SpaceGroup.from_int_number(spg_int, hexagonal)
-        for i in independent_atoms:
-            num = list(identical_atoms).count(i)
-            mul = len(spg.get_orbit(scaled_positions[i]))
-            if mul < num:
-                hexagonal = True
-                spg = SpaceGroup.from_int_number(spg_int, hexagonal)
-                break
-        return spg
+    
+    def to_dict(self):
+        struct_dict = {}
+        lattice = self.lattice_vectors
+        struct_dict['lattice'] = lattice
+        spg_symbol = self.get_spacegroup()
+        struct_dict['spg'] = spg_symbol
+        spg = SpaceGroup(spg_symbol)
+        lattice = self.lattice_vectors
+        indep_index = self.get_independent_atoms()
+        fitted_positions = []
+        for index in indep_index:
+            index_positions = self.frac_positions[self.get_identical_atoms_and_operations()[0] == index]
+            mul = len(index_positions)
+            for pos in index_positions:
+                if spg.get_wyckoff_letter(pos) == special_positions(spg_symbol, mul, pos):
+                    fitted_positions.append(pos)
+                    break
+        indep_wyck = self.atomic_wyckoff_letters()[indep_index]
+        indep_atoms = np.array(self.atomic_symbols)[indep_index]
+        numbers = range(len(indep_wyck))
+        struct_dict['atoms'] = {}
+        for n, s, w, p in zip(numbers, indep_atoms, indep_wyck, fitted_positions):
+            struct_dict['atoms'][n] = [s, w, p]
+        return struct_dict
+    
+    @staticmethod
+    def from_dict(struct_dict):
+        lattice = struct_dict['lattice']
+        spg_symbol = struct_dict['spg']
+        positions = np.array([]).reshape(0, 3)
+        atomic_symbols = []
+        for element, letter, position in struct_dict['atoms'].values():
+            new_positions = np.array(pos_gen_wyckoff_positions(spg_symbol, letter, position))
+            atomic_symbols.extend([element] * len(new_positions))
+            positions = np.concatenate((positions, new_positions))
+        return Structure(lattice, positions, atomic_symbols)
 
     @staticmethod
     def import_from_vasp(filename):
