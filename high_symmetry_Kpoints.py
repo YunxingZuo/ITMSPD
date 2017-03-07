@@ -1,6 +1,6 @@
 # coding: utf-8
-# The MIT License (MIT)
-# Copyright (c) 2011-2012 MIT & LBNL
+# Copyright (c) Pymatgen Development Team.
+# Distributed under the terms of the MIT License.
 
 import numpy as np
 from math import ceil
@@ -95,7 +95,7 @@ class HighSymmKpath(object):
 
         elif lattice_system == "triclinic":
             alpha, beta, gamma = self.angles()
-            if alpha >= 90 and beta >= 90 and min(alpha, beta, gamma) >= 90:
+            if alpha >= 90 and beta >= 89 and min(alpha, beta, gamma) >= 89:
                 self.high_symmetry_kpoints = self.tri_1a()
             elif alpha > 90 and beta > 90 and gamma == 90:
                 self.high_symmetry_kpoints = self.tri_2a()

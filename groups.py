@@ -142,7 +142,7 @@ class PointGroup(SymmetryGroup):
             new_ops = gen_ops
         return symm_ops
 
-    def get_orbit(self, p, tol=1e-5):
+    def get_orbit(self, p, index = 0, tol=1e-5):
         """
         Returns the orbit for a point.
 
@@ -155,11 +155,16 @@ class PointGroup(SymmetryGroup):
         Returns:
             ([array]) Orbit for point.
         """
+        p = np.array(p)
+        pool = np.array([[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]])
+        p = p[pool[index]]
         orbit = []
         for o in self.symmetry_ops:
             pp = o.operate(p)
             if not in_array_list(orbit, pp, tol=tol):
                 orbit.append(pp)
+        orbit = np.array(orbit)
+        orbit = orbit[:, np.argsort(pool[index])]
         return orbit
 
 
@@ -221,6 +226,10 @@ class SpaceGroup(SymmetryGroup):
                     self.symbol = k
         else:
             self.symbol = int_symbol
+
+        if int_symbol == 'Ia-3':
+            self.symbol = int_symbol
+
         # TODO: Support different origin choices.
         enc = list(data["enc"])
         inversion = int(enc.pop(0))
@@ -276,7 +285,7 @@ class SpaceGroup(SymmetryGroup):
                 SymmOp(m) for m in self._generate_full_symmetry_ops()]
         return self._symmetry_ops
 
-    def get_orbit(self, p, tol=1e-5):
+    def get_orbit(self, p, tol=5e-4):
         """
         Returns the orbit for a point.
 
@@ -297,6 +306,28 @@ class SpaceGroup(SymmetryGroup):
             if not in_array_list(orbit, pp, tol=tol):
                 orbit.append(pp)
         return orbit
+
+    # def get_wyckoff_letter(self, pos, tol = 5e-4):
+        # """
+        # Returns the wyckoff letter of a position.
+
+        # Args:
+            # pos: Position as a 3x1 array.
+
+        # Returns:
+            # String of wyckoff letter
+        # """
+        # homosites = self.get_orbit(pos, tol)
+        # multiplicity = len(homosites)
+        # is_found = False
+        # for site in homosites:
+            # if special_positions(self.symbol, multiplicity, site):
+                # is_found = True
+                # assign = site
+                # break
+        # if is_found:
+            # letter = special_positions(self.symbol, multiplicity, assign)
+        # return letter
 
     def is_compatible(self, lattice, tol=1e-5, angle_tol=5):
         """

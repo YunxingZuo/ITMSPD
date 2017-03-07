@@ -56,14 +56,14 @@ class Structure(object):
             self.__element_species.append(species)
             self.__num_per_species.append(len(list(atoms)))
 
-        # tempt = None
-        # for atom in self.__atoms:
-            # if tempt != atom:
-                # self.__element_species.append(atom)
-                # self.__num_per_species.append(1)
-                # tempt = atom
-            # else:
-                # self.__num_per_species[-1] += 1
+        tempt = None
+        for atom in self.__atoms:
+            if tempt != atom:
+                self.__element_species.append(atom)
+                self.__num_per_species.append(1)
+                tempt = atom
+            else:
+                self.__num_per_species[-1] += 1
 
         if name is None:
             name = ''.join('{:s}{:d} '.format(element.atomic_symbol,num) for element, num in zip(self.__element_species, self.__num_per_species))
@@ -104,7 +104,7 @@ class Structure(object):
             diff = abs(self_pos - other_pos)
             exceed_indexes = np.where(diff > 0.5)
             diff[exceed_indexes] = 1 - diff[exceed_indexes]
-            if np.any(np.linalg.norm(diff) > tolerance):
+            if np.any(np.linalg.norm(diff) > tolerance): 
                 return False
                 break
         return True
@@ -151,6 +151,15 @@ class Structure(object):
         Create a tuple for spglib input.
         """
         return (self.__lattice.vectors, np.array(self.__frac_positions), np.array(self.atomic_numbers))
+
+    def origin_shift(self, shift = [0., 0., 0.]):
+        shift = np.array(shift)
+        positions = self.frac_positions
+        new_positions = np.array([p + shift for p in positions])
+        positions = np.mod(new_positions, 1)
+        lattice = self.lattice_vectors
+        atom_numbers = self.atomic_numbers
+        return Structure(lattice, positions, atom_numbers)
 
     def create_supercell(self, trans_matrix):
         """
@@ -226,8 +235,12 @@ class Structure(object):
         return spglib.get_symmetry(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
 
     def get_spacegroup(self, symprec = 1e-1, angle_tolerance = 5):
-        symmetry_dataset = self.get_symmetry_dataset()
-        spg = symmetry_dataset['international'] + symmetry_dataset['choice']
+        symmetry_dataset = spglib.get_symmetry_dataset(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
+        spg_number = symmetry_dataset['number']
+        if spg_number == 146 or spg_number == 148 or spg_number == 155 or spg_number == 160 or spg_number == 161 or spg_number == 166 or spg_number == 167:
+            spg = symmetry_dataset['international'] + symmetry_dataset['choice']
+        else:
+            spg = symmetry_dataset['international']
         return spg
 
     def get_pointgroup(self):
@@ -252,80 +265,81 @@ class Structure(object):
                 break
         return crystal_system
 
-    def get_identical_atoms_and_operations(self, additional_symmetry_operations = None, symprec = 1e-3):
+    def get_identical_atoms_and_operations(self, additional_symmetry_operations = None, symprec = 1):
         lattice_vectors = self.lattice_vectors
         scaled_positions = self.frac_positions
-        rotations = self.get_symmetry_operations()['rotations']
-        translations = self.get_symmetry_operations()['translations']
-        if not additional_symmetry_operations is None:
-            for add_symmop in additional_symmetry_operations:
-                ro = add_symmop.rotation_matrix.reshape(1, 3, 3)
-                tran = add_symmop.translation_vector.reshape(1, 3)
-                rotations = np.append(rotations, ro, axis = 0)
-                translations = np.append(translations, tran, axis = 0)
-        identical_atoms = [i for i in range(self.number_of_atoms)]
-        identical_operations = {}
-        for i, p in enumerate(scaled_positions):
-            is_found = False
-            for j in range(i):
-                for r, t in zip(rotations, translations):
-                    symmop = SymmOp.rotations_combine_translations(r, t)
-                    is_found = symmop.whether_symmetrical(p, scaled_positions[j], lattice_vectors)
-                    if is_found:
-                        identical_atoms[i] = j
-                        key = '{}->{}'.format(i, j)
-                        value = symmop.affine_matrix
-                        identical_operations[key] = value
-                        break
-                if is_found:
-                    break
-        return np.array(identical_atoms, dtype='intc'), identical_operations
+        # rotations = self.get_symmetry_operations(symprec = symprec)['rotations']
+        # translations = self.get_symmetry_operations(symprec = symprec)['translations']
+        # if not additional_symmetry_operations is None:
+            # for add_symmop in additional_symmetry_operations:
+                # ro = add_symmop.rotation_matrix.reshape(1, 3, 3)
+                # tran = add_symmop.translation_vector.reshape(1, 3)
+                # rotations = np.append(rotations, ro, axis = 0)
+                # translations = np.append(translations, tran, axis = 0)
+        # identical_atoms = [i for i in range(self.number_of_atoms)]
+        # identical_operations = {}
+        # for i, p in enumerate(scaled_positions):
+            # is_found = False
+            # for j in range(i):
+                # for r, t in zip(rotations, translations):
+                    # symmop = SymmOp.rotations_combine_translations(r, t)
+                    # is_found = symmop.whether_symmetrical(p, scaled_positions[j], lattice_vectors)
+                    # if is_found:
+                        # identical_atoms[i] = j
+                        # key = '{}->{}'.format(i, j)
+                        # value = symmop.affine_matrix
+                        # identical_operations[key] = value
+                        # break
+                # if is_found:
+                    # break
+        # return np.array(identical_atoms, dtype='intc'), identical_operations
+        return self.get_symmetry_dataset()['equivalent_atoms']
 
-    def get_independent_atoms(self, additional_symmetry_operations = None, symprec = 1e-3):
+    def get_independent_atoms(self, additional_symmetry_operations = None, symprec = 1):
         indep_atoms = []
-        identical_atoms = self.get_identical_atoms_and_operations(additional_symmetry_operations, symprec)[0]
+        identical_atoms = self.get_identical_atoms_and_operations(additional_symmetry_operations, symprec = symprec)
         for i, eq in enumerate(identical_atoms):
             if i == eq:
                 indep_atoms.append(i)
         return np.array(indep_atoms, dtype='intc')
 
-    def atomic_wyckoff_letters(self):
-        identical_atoms = self.get_identical_atoms_and_operations()[0]
-        independent_atoms = self.get_independent_atoms()
-        scaled_positions = self.frac_positions
-        spg = SpaceGroup(self.get_spacegroup())
-        spg_int = spg.int_number
-        wyckoff_letters = np.array([''] * len(identical_atoms))
-        for i in independent_atoms:
-            letter = spg.get_wyckoff_letter(scaled_positions[i])
-            wyckoff_letters[identical_atoms == i] = letter
-        return wyckoff_letters
-    
+    def atomic_wyckoff_letters(self, tol = 5e-4):
+        # identical_atoms = self.get_identical_atoms_and_operations()[0]
+        # independent_atoms = self.get_independent_atoms()
+        # scaled_positions = self.frac_positions
+        # spg = SpaceGroup(self.get_spacegroup())
+        # spg_int = spg.int_number
+        # wyckoff_letters = np.array([''] * len(identical_atoms))
+        # for i in independent_atoms:
+            # letter = spg.get_wyckoff_letter(scaled_positions[i], tol = tol)
+            # wyckoff_letters[identical_atoms == i] = letter
+        return self.get_symmetry_dataset()['wyckoffs']
+
     def to_dict(self):
         struct_dict = {}
         lattice = self.lattice_vectors
         struct_dict['lattice'] = lattice
         spg_symbol = self.get_spacegroup()
         struct_dict['spg'] = spg_symbol
-        spg = SpaceGroup(spg_symbol)
-        lattice = self.lattice_vectors
+        # spg = SpaceGroup(spg_symbol)
         indep_index = self.get_independent_atoms()
-        fitted_positions = []
-        for index in indep_index:
-            index_positions = self.frac_positions[self.get_identical_atoms_and_operations()[0] == index]
-            mul = len(index_positions)
-            for pos in index_positions:
-                if spg.get_wyckoff_letter(pos) == special_positions(spg_symbol, mul, pos):
-                    fitted_positions.append(pos)
-                    break
-        indep_wyck = self.atomic_wyckoff_letters()[indep_index]
+        # fitted_positions = []
+        # for index in indep_index:
+            # index_positions = self.frac_positions[self.get_identical_atoms_and_operations() == index]
+            # mul = len(index_positions)
+            # for pos in index_positions:
+                # if spg.get_wyckoff_letter(pos) == special_positions(spg_symbol, mul, pos):
+                    # fitted_positions.append(pos)
+                    # break
+        indep_positions = self.frac_positions[indep_index]
+        indep_wyck = np.array(self.atomic_wyckoff_letters())[indep_index]
         indep_atoms = np.array(self.atomic_symbols)[indep_index]
         numbers = range(len(indep_wyck))
         struct_dict['atoms'] = {}
-        for n, s, w, p in zip(numbers, indep_atoms, indep_wyck, fitted_positions):
+        for n, s, w, p in zip(numbers, indep_atoms, indep_wyck, indep_positions):
             struct_dict['atoms'][n] = [s, w, p]
         return struct_dict
-    
+
     @staticmethod
     def from_dict(struct_dict):
         lattice = struct_dict['lattice']
@@ -436,11 +450,11 @@ class Structure(object):
             number_of_atoms = int(lines[0].split()[0])
 
             lattice_vectors = []
-            if lines[1][0].lower() == 'l':
+            if lines[1].split()[0][0].lower() == 'l':
                 for i in range(2, 5):
                     lattice_vectors.append([float(x) for x in lines[i].split()[:3]])
 
-            if lines[5][0].lower() == 'p':
+            if lines[5].split()[0][0].lower() == 'p':
                 line_index = 6
 
             positions = []
@@ -487,11 +501,11 @@ class Structure(object):
         cell_info = {}
         atom_info = {}
         for i, line in enumerate(lines):
-            if (line.find('_cell_length_') >= 0) or (line.find('_cell_angle_') >= 0):
+            if line.find('_cell_') >= 0:
                 key = line.split()[0]
                 value = float(line.split()[1])
                 cell_info[key] = value
-            if line.find('_atom_site_') >= 0:
+            if line.find('_atom_') >= 0:
                 key = line.split()[0]
                 value = i
                 atom_info[key] = value

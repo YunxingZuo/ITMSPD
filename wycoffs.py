@@ -1,11 +1,6 @@
 # coding: utf-8
-# Copyright © 2016 YunXing Zuo
 
 import numpy as np
-
-__author__ = 'YunXing Zuo'
-__email__ = 'zuoyx@pkusz.edu.cn'
-__date__ = 'Nov. 12, 2016'
 
 def special_positions(symbol, multiplicity, pos):
     if symbol == 'P1':

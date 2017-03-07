@@ -5,8 +5,8 @@ import numpy as np
 from copy import deepcopy
 from itertools import product
 from structure import *
-from spg_explorer import *
-from wyckoffss import *
+from sss_specific import *
+from sp_dict import *
 
 __author__ = 'YunXing Zuo'
 __email__ = 'zuoyx@pkusz.edu.cn'
@@ -39,14 +39,14 @@ def bond_dist_critieron(Structure, element_A, element_B, distprec = 1.5):
             return False
     return True
 
-def add_atoms(pre_structure, spg, element, letter):
+def add_atoms(pre_structure, spg_symbol, element, letter):
     """
     Return a new Structure class by adding atoms of given symbol assigned in the certain Wyckoff letter
     of selected spacegroup
 
     Args:
         pre_structure: Structure class operated
-        spg: string of spacegroup selected(e.g., "Pnma")
+        spg_symbol: string of spacegroup selected(e.g., "Pnma")
         element: string of atomic symbol added into the structure
         letter: string of Wyckoff Letter in the specific spacegroup (e.g., "a")
 
@@ -56,19 +56,19 @@ def add_atoms(pre_structure, spg, element, letter):
     lattice = pre_structure.lattice_vectors
     atomic_symbols = pre_structure.atomic_symbols
     positions = pre_structure.frac_positions
-    new_positions = np.array(pos_gen_wyckoff_positions(spg, letter))
+    new_positions = np.array(pos_gen_wyckoff_positions(spg_symbol, letter))
     positions = np.concatenate((positions, new_positions))
     atomic_symbols.extend([element] * len(new_positions))
     return Structure(lattice, positions, atomic_symbols)
 
-def structure_generation(spg, lattice_vectors, letters, elements, min_bond_dist = 1.5):
+def structure_generation(spg_symbol, lattice_vectors, letters, elements, min_bond_dist = 1.5):
     """
     Get the structure class under selected spacegroup, lattice constants, candidate feasible permutation and according types pf atoms
     by adding atoms in order by the criterion of distance. (e.g., when added Co atoms in "b" site in the structure filled with Li atoms
     in "a" site, check whether distance between every Co atom and every Li atom is larger than min_bond_dist, if not, reassign Co atom)
 
     Args:
-        spg: string of spacegroup selected(e.g., "Pnma")
+        spg_symbol: string of spacegroup selected(e.g., "Pnma")
         lattice_vectors: 3x3 array defines the lattice constants
         letters: list of permutation given by permutation_gen function
         elements: list of elements mapping the given Wyckoff sites
@@ -79,16 +79,16 @@ def structure_generation(spg, lattice_vectors, letters, elements, min_bond_dist 
         A newly generated structure class if all the distances between different atom pairs is less than min_bond_dist, 
         else, return the string "There is not satisfied structure under this circumstances!"
     """
-    temp = sorted(enumerate(letters), key=lambda x: len(pos_gen_wyckoff_positions(spg, x[1])))
+    temp = sorted(enumerate(letters), key=lambda x: len(pos_gen_wyckoff_positions(spg_symbol, x[1])))
     sorted_letters = [x[1] for x in temp]
     sorted_index = [x[0] for x in temp]
     sorted_elements = [elements[i] for i in sorted_index]
-    initial_positions = np.array(pos_gen_wyckoff_positions(spg, sorted_letters.pop(0)))
+    initial_positions = np.array(pos_gen_wyckoff_positions(spg_symbol, sorted_letters.pop(0)))
     new_structure = Structure(lattice_vectors, initial_positions, [sorted_elements.pop(0)] * len(initial_positions))
     while sorted_letters:
         j = 0
-        while j < 100:
-            new_structure = add_atoms(new_structure, spg, sorted_elements[0], sorted_letters[0])
+        while j < 5000:
+            new_structure = add_atoms(new_structure, spg_symbol, sorted_elements[0], sorted_letters[0])
             satisfied = True
             for i in np.unique(new_structure.atomic_symbols):
                 if not bond_dist_critieron(new_structure, i, sorted_elements[0], min_bond_dist):
@@ -100,9 +100,9 @@ def structure_generation(spg, lattice_vectors, letters, elements, min_bond_dist 
                 sorted_elements.pop(0)
                 break
             j += 1
-        if j >= 10: break
+        if j >= 5000: break
     if sorted_letters:
-        return "There is not satisfied structure under this circumstances!"
+        return False
     return new_structure
 
 def identical(list_A, list_B):
@@ -120,14 +120,14 @@ def identical(list_A, list_B):
     except:
         return np.all([list_A[i] == list_B[i] for i in range(len(list_A))])
 
-def tree_gen(spg, num_of_atom, letter_candidates_symbols, letter_candidates_numbers, pre_used = []):
+def tree_gen(spg_symbol, num_of_atom, letter_candidates_symbols, letter_candidates_numbers, pre_used = []):
     """
     An iterative tree generation process of assigning certain number of atoms in the candidate sites 
     (e.g., 12 atoms assigned in the wyckoff sites of spacegroup "R-3mH"), 
     see the final outcome in the result of filter_replicate function below
     
     Args:
-        spg: string of spacegroup selected (e.g., "R-3mH")
+        spg_symbol: string of spacegroup selected (e.g., "R-3mH")
         num_of_atom: the number of atoms assigned in candidate sites
         letter_candidates_symbols: list of all string of Wyckoff letters in selected spacegroup (e.g., ['a', 'b', 'c', 'd'] for "Pnma" 
                                    resulted from the sp_dict dictionary class, usually sp_dict['Pnma'].keys())
@@ -145,15 +145,15 @@ def tree_gen(spg, num_of_atom, letter_candidates_symbols, letter_candidates_numb
         if qualified_candidate_symbols:
             tree = {}
             for letter in qualified_candidate_symbols:
-                new_num_of_atom = num_of_atom - len(pos_gen_wyckoff_positions(spg, letter))
+                new_num_of_atom = num_of_atom - len(pos_gen_wyckoff_positions(spg_symbol, letter))
                 new_letter_candidates_numbers = [num for num in letter_candidates_numbers]
                 new_letter_candidates_symbols = [sym for sym in letter_candidates_symbols]
-                if identical(pos_gen_wyckoff_positions(spg, letter), pos_gen_wyckoff_positions(spg, letter)):
+                if identical(pos_gen_wyckoff_positions(spg_symbol, letter), pos_gen_wyckoff_positions(spg_symbol, letter)):
                     del new_letter_candidates_numbers[new_letter_candidates_symbols.index(letter)]
                     new_letter_candidates_symbols.remove(letter)
-                    tree[letter] = tree_gen(spg, new_num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, pre_used)
+                    tree[letter] = tree_gen(spg_symbol, new_num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, pre_used)
                 else:
-                    tree[letter] = tree_gen(spg, new_num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, pre_used)
+                    tree[letter] = tree_gen(spg_symbol, new_num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, pre_used)
             return tree
         else:
             return False
@@ -161,10 +161,10 @@ def tree_gen(spg, num_of_atom, letter_candidates_symbols, letter_candidates_numb
         new_letter_candidates_numbers = [num for num in letter_candidates_numbers]
         new_letter_candidates_symbols = [sym for sym in letter_candidates_symbols]
         for letter in pre_used:
-            if identical(pos_gen_wyckoff_positions(spg, letter), pos_gen_wyckoff_positions(spg, letter)):
+            if identical(pos_gen_wyckoff_positions(spg_symbol, letter), pos_gen_wyckoff_positions(spg_symbol, letter)):
                 del new_letter_candidates_numbers[new_letter_candidates_symbols.index(letter)]
                 new_letter_candidates_symbols.remove(letter)
-        return tree_gen(spg, num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, [])
+        return tree_gen(spg_symbol, num_of_atom, new_letter_candidates_symbols, new_letter_candidates_numbers, [])
 
 def list_all_dict(tree, l = []):
     """
@@ -203,14 +203,14 @@ def filter_replicate(r):
             o.append(i)
     return o
 
-def permutate(spg, num_of_atom, symbol_of_atom, letter_candidates_symbols, letter_candidates_numbers, letters = []):
+def permutate(spg_symbol, num_of_atom, symbol_of_atom, letter_candidates_symbols, letter_candidates_numbers, letters = []):
     """
     Return a tuple of a list of all permutations and according type of atom (e.g., mapping 6 O atoms in the Wyckoff sites of spacegrop "R-3mH"
     will result in two permutations: ['a', 'b'] and ['c'])
     """
-    letter_symbols = sp_dict[spg].keys()
-    letter_numbers = sp_dict[spg].values()
-    tree = tree_gen(spg, num_of_atom, letter_symbols, letter_numbers, letters)
+    letter_symbols = sp_dict[spg_symbol].keys()
+    letter_numbers = sp_dict[spg_symbol].values()
+    tree = tree_gen(spg_symbol, num_of_atom, letter_symbols, letter_numbers, letters)
     permutation = filter_replicate(list_all_dict(tree))
     s = deepcopy(permutation)
     for i in s:
@@ -218,18 +218,18 @@ def permutate(spg, num_of_atom, symbol_of_atom, letter_candidates_symbols, lette
             i[j] = symbol_of_atom
     return permutation, s
 
-def permutation_gen(spg, num_of_atoms, symbol_of_atoms, letter_candidates_symbols, letter_candidates_numbers):
+def permutation_gen(spg_symbol, num_of_atoms, symbol_of_atoms, letter_candidates_symbols, letter_candidates_numbers):
     """
     Return a tuple of a list of all permutations and according types of atoms (e.g., mapping 3 Li atoms, 3 Co atoms, 6 O atoms in the Wyckoff sites of spacegrop "R-3mH"
     will result in two permutations: ['a', 'b', 'c'] for ['Li', 'Co', 'O'] and ['b', 'a', 'c'] for ['Li', 'Co', 'O'])
     """
     letters = []
-    letters_permutation, symbols_permutation = permutate(spg, num_of_atoms.pop(0), symbol_of_atoms.pop(0), letter_candidates_symbols, letter_candidates_numbers, letters)
+    letters_permutation, symbols_permutation = permutate(spg_symbol, num_of_atoms.pop(0), symbol_of_atoms.pop(0), letter_candidates_symbols, letter_candidates_numbers, letters)
     while num_of_atoms:
         next_letters = []
         next_symbols = []
         for l, s in zip(letters_permutation, symbols_permutation):
-            temp_letters_permutation, temp_symbols_permutation = permutate(spg, num_of_atoms[0], symbol_of_atoms[0], letter_candidates_symbols, letter_candidates_numbers, l)
+            temp_letters_permutation, temp_symbols_permutation = permutate(spg_symbol, num_of_atoms[0], symbol_of_atoms[0], letter_candidates_symbols, letter_candidates_numbers, l)
             next_letters_permutation = [np.concatenate((l, i)).tolist() for i in temp_letters_permutation]
             next_symbols_permutation = [np.concatenate((s, i)).tolist() for i in temp_symbols_permutation]
             next_letters.extend(next_letters_permutation)
