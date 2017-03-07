@@ -43,12 +43,21 @@ class Element(object):
 
     def __eq__(self, other):
         if isinstance(other, Element):
-            if self.atomic_symbol == other.atomic_symbol:
-                if self.atomic_number == other.atomic_number:
-                    if self.atomic_mass == other.atomic_mass:
-                        return True
-        else:
-            return False
+            if self.atomic_number == other.atomic_number:
+                return True
+        return False
+
+    def __gt__(self, other):
+        if isinstance(other, Element):
+            if self.atomic_number > other.atomic_number:
+                return True
+        return False
+
+    def __lt__(self, other):
+        if isinstance(other, Element):
+            if self.atomic_number < other.atomic_number:
+                return True
+        return False
 
     @property
     def atomic_symbol(self):

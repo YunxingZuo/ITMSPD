@@ -34,15 +34,21 @@ class Structure(object):
         else:
             self.__lattice = Lattice(lattice)
 
+        sorted_positions = []
+        sorted_atoms = []
+        for sorted_zip in sorted(list(zip(atoms, positions)), key = lambda x: x[0]):
+            sorted_atoms.append(sorted_zip[0])
+            sorted_positions.append(sorted_zip[1])
+
         if is_cartesian:
-            self.__cart_positions = np.array(positions)
-            self.__frac_positions = self.__lattice.get_frac_coords(positions)
+            self.__cart_positions = np.array(sorted_positions)
+            self.__frac_positions = self.__lattice.get_frac_coords(sorted_positions)
         else:
-            self.__frac_positions = np.array(positions)
-            self.__cart_positions = self.__lattice.get_cart_coords(positions)
+            self.__frac_positions = np.array(sorted_positions)
+            self.__cart_positions = self.__lattice.get_cart_coords(sorted_positions)
 
         self.__atoms = []
-        for atom in atoms:
+        for atom in sorted_atoms:
             if isinstance(atom, Element):
                 element = atom
             else:
@@ -55,15 +61,6 @@ class Structure(object):
         for species, atoms in itertools.groupby(self.__atoms):
             self.__element_species.append(species)
             self.__num_per_species.append(len(list(atoms)))
-
-        tempt = None
-        for atom in self.__atoms:
-            if tempt != atom:
-                self.__element_species.append(atom)
-                self.__num_per_species.append(1)
-                tempt = atom
-            else:
-                self.__num_per_species[-1] += 1
 
         if name is None:
             name = ''.join('{:s}{:d} '.format(element.atomic_symbol,num) for element, num in zip(self.__element_species, self.__num_per_species))
