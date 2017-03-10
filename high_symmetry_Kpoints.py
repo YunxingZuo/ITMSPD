@@ -8,13 +8,23 @@ from math import cos
 from math import sin
 from math import tan
 from math import pi
+
+from structure import *
+
 import warnings
 
 class HighSymmKpath(object):
-    def __init__(self, abc, angles, lattice_system, spg_symbol):
-        self._abc = abc
-        self._angles = angles
+    def __init__(self, structure, symprec=0.1, angle_tolerance=5):
+        self._structure = structure
+        self._abc = structure.lattice.abc
+        self._angles = structure.lattice.angles
+        self._prim = structure.find_primitive_cell()
+        self._prim_rec = self._prim.lattice.reciprocal_lattice
+        self._conv = structure.find_conventional_cell()
+        self.high_symmetry_kpoints = None
 
+        lattice_system = structure.get_crystal_system()
+        spg_symbol = structure.get_spacegroup(symprec = symprec, angle_tolerance = angle_tolerance)
 
         if lattice_system == "cubic":
             if "P" in spg_symbol:
@@ -30,8 +40,8 @@ class HighSymmKpath(object):
             if "P" in spg_symbol:
                 self.high_symmetry_kpoints = self.tet()
             elif "I" in spg_symbol:
-                a = self._abc[0]
-                c = self._abc[2]
+                a = self._conv.lattice.abc[0]
+                c = self._conv.lattice.abc[2]
                 if c < a:
                     self.high_symmetry_kpoints = self.bctet1(c, a)
                 else:
@@ -40,7 +50,9 @@ class HighSymmKpath(object):
                 warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "orthorhombic":
-            a, b, c = self.abc()
+            a = self._conv.lattice.abc[0]
+            b = self._conv.lattice.abc[1]
+            c = self._conv.lattice.abc[2]
 
             if "P" in spg_symbol:
                 self.high_symmetry_kpoints = self.orc()
@@ -65,25 +77,26 @@ class HighSymmKpath(object):
             self.high_symmetry_kpoints = self.hex()
 
         elif lattice_system == "rhombohedral" or lattice_system == "trigonal":
-            alpha = self._angles[0]
+            alpha = self._prim.lattice.angles[0]
             if alpha < 90:
                 self.high_symmetry_kpoints = self.rhl1(alpha * pi / 180)
             else:
                 self.high_symmetry_kpoints = self.rhl2(alpha * pi / 180)
 
         elif lattice_system == "monoclinic":
-            a, b, c = self.abc()
-            alpha, beta, gamma = self.angles()
+            a, b, c = self._conv.lattice.abc
+            alpha = self._conv.lattice.angles[0]
 
             if "P" in spg_symbol:
                 self.high_symmetry_kpoints = self.mcl(b, c, alpha * pi / 180)
 
             elif "C" in spg_symbol:
-                if gamma > 90:
+                kgamma = self._prim_rec.angles[2]
+                if kgamma > 90:
                     self.high_symmetry_kpoints = self.mclc1(a, b, c, alpha * pi / 180)
-                elif gamma == 90:
+                elif kgamma == 90:
                     self.high_symmetry_kpoints = self.mclc2(a, b, c, alpha * pi / 180)
-                elif gamma < 90:
+                elif kgamma < 90:
                     if b * cos(alpha * pi / 180) / c + b ** 2 * sin(alpha * pi / 180) ** 2 / (a ** 2) < 1:
                         self.high_symmetry_kpoints = self.mclc3(a, b, c, alpha * pi / 180)
                     elif b * cos(alpha * pi / 180) / c + b ** 2 * sin(alpha * pi / 180) ** 2 / (a ** 2) == 1:
@@ -94,15 +107,15 @@ class HighSymmKpath(object):
                 warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
         elif lattice_system == "triclinic":
-            alpha, beta, gamma = self.angles()
-            if alpha >= 90 and beta >= 89 and min(alpha, beta, gamma) >= 89:
-                self.high_symmetry_kpoints = self.tri_1a()
-            elif alpha > 90 and beta > 90 and gamma == 90:
-                self.high_symmetry_kpoints = self.tri_2a()
-            elif alpha < 90 and beta < 90 and max(alpha, beta, gamma) < 90:
-                self.high_symmetry_kpoints = self.tri_1b()
-            elif alpha < 90 and beta < 90 and gamma == 90:
-                self.high_symmetry_kpoints = self.tri_2b()
+            kalpha, kbeta, kgamma = self._prim_rec.angles
+            if kalpha > 90 and kbeta > 90 and kgamma > 90:
+                self.high_symmetry_kpoints = self.tria()
+            elif kalpha < 90 and kbeta < 90 and kgamma < 90:
+                self.high_symmetry_kpoints = self.trib()
+            elif kalpha > 90 and kbeta > 90 and kgamma == 90:
+                self.high_symmetry_kpoints = self.tria()
+            elif kalpha < 90 and kbeta < 90 and kgamma == 90:
+                self.high_symmetry_kpoints = self.trib()
             else:
                 warnings.warn("Unexpected value for spg_symbol: %s" % spg_symbol)
 
@@ -160,7 +173,7 @@ class HighSymmKpath(object):
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "R": np.array([0.0, 0.5, 0.5]), \
         "A": np.array([0.5, 0.5, 0.5]), "X": np.array([0.0, 0.5, 0.0]), \
         "M": np.array([0.5, 0.5, 0.0]), "Z": np.array([0.0, 0.0, 0.5])}
-        path = [['\Gamma', 'X', 'M', '\Gamma', 'Z', 'R', 'A'], ['X', 'R'], ['M', 'A']]
+        path = [['\Gamma', 'X', 'M', '\Gamma', 'Z', 'R', 'A', 'Z'], ['X', 'R'], ['M', 'A']]
         return {'kpoints': kpoints, 'path': path}
 
     # A.5. Body-centered tetragonal (BCT, tI)
@@ -180,8 +193,8 @@ class HighSymmKpath(object):
 
     def bctet2(self, c, a):
         self.name = "BCT2"
-        eta = (1 + c **2 / a ** 2) / 4.0
-        zeta = a**2 / (2 * c**2)
+        eta = (1 + a ** 2 / c ** 2) / 4.0
+        zeta = a ** 2 / (2 * c ** 2)
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "X":np.array([0.0, 0.0, 0.5]), \
         "N": np.array([0.0, 0.5, 0.0]), "Y": np.array([-zeta, zeta, 0.5]), \
         "P": np.array([1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0]), "Y_1": np.array([0.5, 0.5, -zeta]), \
@@ -232,7 +245,7 @@ class HighSymmKpath(object):
         "D": np.array([0.5 - delta, 0.5, 1 - delta]), "Y": np.array([0.5, 0.0, 0.5]), \
         "D_1": np.array([0.5 + delta, 0.5, delta]), "Z": np.array([0.5, 0.5, 0.0]), \
         "L": np.array([0.5, 0.5, 0.5])}
-        path = [['\Gamma', 'Y', 'C', 'D', 'X', '\Gamma', 'Z', 'D_1', 'H', 'C'], ['C_1', 'Z'], ['X', 'H_1'], ['L', '\Gamma']]
+        path = [['\Gamma', 'Y', 'C', 'D', 'X', '\Gamma', 'Z', 'D_1', 'H', 'C'], ['C_1', 'Z'], ['X', 'H_1'], ['H', 'Y'], ['L', '\Gamma']]
         return {'kpoints': kpoints, 'path': path}
 
     def orcf3(self, a, b, c):
@@ -257,11 +270,11 @@ class HighSymmKpath(object):
         zeta = (1 + a ** 2 / c ** 2) / 4
         delta = (b ** 2 - a ** 2) / (4 * c **2)
         eta = (1 + b ** 2 / c ** 2) / 4
-        miu = (a ** 2 + b ** 2) / (4 * c ** 2)
+        mu = (a ** 2 + b ** 2) / (4 * c ** 2)
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "W": np.array([1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0]), \
-        "L": np.array([-miu, miu, 0.5 - delta]), "X": np.array([-zeta, zeta, zeta]), \
-        "L_1": np.array([miu, -miu, 0.5 + delta]), "X_1": np.array([zeta, 1 - zeta, -zeta]), \
-        "L_2": np.array([0.5 - delta, 0.5 + delta, -miu]), "Y": np.array([eta, -eta, eta]), \
+        "L": np.array([-mu, mu, 0.5 - delta]), "X": np.array([-zeta, zeta, zeta]), \
+        "L_1": np.array([mu, -mu, 0.5 + delta]), "X_1": np.array([zeta, 1 - zeta, -zeta]), \
+        "L_2": np.array([0.5 - delta, 0.5 + delta, -mu]), "Y": np.array([eta, -eta, eta]), \
         "R": np.array([0.0, 0.5, 0.0]), "Y_1": np.array([1 - eta, eta, -eta]), \
         "S": np.array([0.5, 0.0, 0.0]), "Z": np.array([0.5, 0.5, -0.5]), \
         "T": np.array([0.0, 0.0, 0.5])}
@@ -331,15 +344,15 @@ class HighSymmKpath(object):
         a1 = (a, 0, 0)
         a2 = (0, b, 0)
         a3 = (0, c*cos(α), c*sin(α))"""
-    def mcl(self, b, c, alpha):
+    def mcl(self, b, c, beta):
         self.name = "MCL"
-        eta = (1 - b * cos(alpha) / c) / (2 * sin(alpha) ** 2)
-        nu = 0.5 - eta * c * cos(alpha) / b
+        eta = (1 - b * cos(beta) / c) / (2 * sin(beta) ** 2)
+        nu = 0.5 - eta * c * cos(beta) / b
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "H_2": np.array([0.0, eta, -nu]), \
         "A": np.array([0.5, 0.5, 0.0]), "M": np.array([0.5, eta, 1 - nu]), \
         "C": np.array([0.0, 0.5, 0.5]), "M_1": np.array([0.5, 1 - eta, nu]), \
-        "D": np.array([0.5, 0.0, 0.5]), "M_2": np.array([0.5, eta, -nu]), \
-        "D_1": np.array([0.5, 0.0, -0.5]), "X": np.array([0.0, 0.5, 0.0]), \
+        "D": np.array([0.5, 0.0, 0.5]), "M_2": np.array([0.5, 1 - eta, nu]), \
+        "D_1": np.array([0.5, 0.5, -0.5]), "X": np.array([0.0, 0.5, 0.0]), \
         "E": np.array([0.5, 0.5, 0.5]), "Y": np.array([0.0, 0.0, 0.5]), \
         "H": np.array([0, eta, 1 - nu]), "Y_1": np.array([0.0, 0.0, -0.5]), \
         "H_1": np.array([0.0, 1 - eta, nu]), "Z": np.array([0.5, 0.0, 0.0])}
@@ -363,9 +376,8 @@ class HighSymmKpath(object):
         "F": np.array([1 - zeta, 1 - zeta, 1 - eta]), "X_1": np.array([psi, 1 - psi, 0.0]), \
         "F_1": np.array([zeta, zeta, eta]), "X_2": np.array([psi - 1, -psi, 0.0]), \
         "F_2": np.array([-zeta, -zeta, 1 - eta]), "Y": np.array([0.5, 0.5, 0.0]), \
-        "F_3": np.array([1 - zeta, -zeta, 1 - eta]), "Y_1": np.array([-0.5, -0.5, 0.0]), \
-        "I": np.array([phi, 1 - phi, 0.5]), "Z": np.array([0.0, 0.0, 0.5]), \
-        "I_1": np.array([1 - phi, phi - 1, 0.5])}
+        "Y_1": np.array([-0.5, -0.5, 0.0]), "I": np.array([phi, 1 - phi, 0.5]), \
+        "Z": np.array([0.0, 0.0, 0.5]), "I_1": np.array([1 - phi, phi - 1, 0.5])}
         path = [['\Gamma', 'Y', 'F', 'L', 'I'], ['I_1', 'Z', 'F_1'], ['Y', 'X_1'], ['X', '\Gamma', 'N'], ['M', '\Gamma']]
         return {'kpoints': kpoints, 'path': path}
 
@@ -389,19 +401,19 @@ class HighSymmKpath(object):
 
     def mclc3(self, a, b, c, alpha):
         self.name = "MCLC3"
-        miu = (1 + b ** 2 / a ** 2) / 4
+        mu = (1 + b ** 2 / a ** 2) / 4
         delta = b * c * cos(alpha) / (2 * a ** 2)
-        zeta = miu - 1.0 / 4.0 + (1 - b * cos(alpha) / c) / (4 * sin(alpha) ** 2)
-        eta = 1.0 / 2.0 + 2 * zeta * c * cos(alpha) / b
-        phi = 1 + zeta - 2 * miu
+        zeta = mu - 0.25 + (1 - b * cos(alpha) / c) / (4 * sin(alpha) ** 2)
+        eta = 0.5 + 2 * zeta * c * cos(alpha) / b
+        phi = 1 + zeta - 2 * mu
         psi = eta - 2 * delta
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "N": np.array([0.5, 0.0, 0.0]), \
         "F": np.array([1 - phi, 1 - phi, 1 - psi]), "N_1": np.array([0.0, -0.5, 0.0]), \
         "F_1": np.array([phi, phi - 1, psi]), "X": np.array([0.5, -0.5, 0.0]), \
-        "F_2": np.array([1 - phi, -phi, 1 - psi]), "Y": np.array([miu, miu, delta]), \
-        "H": np.array([zeta, zeta, eta]), "Y_1": np.array([1 - miu, -miu, -delta]), \
-        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_2": np.array([-miu, -miu, -delta]), \
-        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_3": np.array([miu, miu - 1, delta]), \
+        "F_2": np.array([1 - phi, -phi, 1 - psi]), "Y": np.array([mu, mu, delta]), \
+        "H": np.array([zeta, zeta, eta]), "Y_1": np.array([1 - mu, -mu, -delta]), \
+        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_2": np.array([-mu, -mu, -delta]), \
+        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_3": np.array([mu, mu - 1, delta]), \
         "I": np.array([0.5, -0.5, 0.5]), "Z": np.array([0.0, 0.0, 0.5]), \
         "M": np.array([0.5, 0.0, 0.5])}
         path = [['\Gamma', 'Y', 'F', 'H', 'Z', 'I', 'F_1'], ['H_1', 'Y_1', 'X', '\Gamma', 'N'], ['M', '\Gamma']]
@@ -409,19 +421,19 @@ class HighSymmKpath(object):
 
     def mclc4(self, a, b, c, alpha):
         self.name = "MCLC4"
-        miu = (1 + b ** 2 / a ** 2) / 4
+        mu = (1 + b ** 2 / a ** 2) / 4
         delta = b * c * cos(alpha) / (2 * a ** 2)
-        zeta = miu - 1.0 / 4.0 + (1 - b * cos(alpha) / c) / (4 * sin(alpha) ** 2)
-        eta = 1.0 / 2.0 + 2 * zeta * c * cos(alpha) / b
-        phi = 1 + zeta - 2 * miu
+        zeta = mu - 0.25 + (1 - b * cos(alpha) / c) / (4 * sin(alpha) ** 2)
+        eta = 0.5 + 2 * zeta * c * cos(alpha) / b
+        phi = 1 + zeta - 2 * mu
         psi = eta - 2 * delta
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "N": np.array([0.5, 0.0, 0.0]), \
         "F": np.array([1 - phi, 1 - phi, 1 - psi]), "N_1": np.array([0.0, -0.5, 0.0]), \
         "F_1": np.array([phi, phi - 1, psi]), "X": np.array([0.5, -0.5, 0.0]), \
-        "F_2": np.array([1 - phi, -phi, 1 - psi]), "Y": np.array([miu, miu, delta]), \
-        "H": np.array([zeta, zeta, eta]), "Y_1": np.array([1 - miu, -miu, -delta]), \
-        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_2": np.array([-miu, -miu, -delta]), \
-        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_3": np.array([miu, miu - 1, delta]), \
+        "F_2": np.array([1 - phi, -phi, 1 - psi]), "Y": np.array([mu, mu, delta]), \
+        "H": np.array([zeta, zeta, eta]), "Y_1": np.array([1 - mu, -mu, -delta]), \
+        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_2": np.array([-mu, -mu, -delta]), \
+        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_3": np.array([mu, mu - 1, delta]), \
         "I": np.array([0.5, -0.5, 0.5]), "Z": np.array([0.0, 0.0, 0.5]), \
         "M": np.array([0.5, 0.0, 0.5])}
         path = [['\Gamma', 'Y', 'F', 'H', 'Z', 'I'], ['H_1', 'Y_1', 'X', '\Gamma', 'N'], ['M', '\Gamma']]
@@ -430,20 +442,20 @@ class HighSymmKpath(object):
     def mclc5(self, a, b, c, alpha):
         self.name = "MCLC5"
         zeta = (b ** 2 / a ** 2 + (1 - b * cos(alpha) / c) / (sin(alpha) ** 2)) / 4
-        eta = 1.0 / 2.0 + 2 * zeta * c * cos(alpha) / b
-        miu = eta / 2 + b ** 2 / (4 * a ** 2) - b * c * cos(alpha) / (2 * a ** 2)
-        nu = 2 * miu - zeta
+        eta = 0.5 + 2 * zeta * c * cos(alpha) / b
+        mu = eta / 2 + b ** 2 / (4 * a ** 2) - b * c * cos(alpha) / (2 * a ** 2)
+        nu = 2 * mu - zeta
         omega = (4 * nu - 1 - b ** 2 * sin(alpha) ** 2 / a ** 2) * c / (2 * b * cos(alpha))
-        delta = zeta * c * cos(alpha) / b + omega / 2 - 1.0 / 4.0
+        delta = zeta * c * cos(alpha) / b + omega / 2 - 0.25
         rho = 1 - zeta * a ** 2 / b ** 2
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "M": np.array([0.5, 0.0, 0.5]), \
         "F": np.array([nu, nu, omega]), "N": np.array([0.5, 0.0, 0.0]), \
         "F_1": np.array([1 - nu, 1 - nu, 1 - omega]), "N_1": np.array([0.0, -0.5, 0.0]), \
         "F_2": np.array([nu, nu - 1, omega]), "X": np.array([0.5, -0.5, 0.0]), \
-        "H": np.array([zeta, zeta, eta]), "Y": np.array([miu, miu, delta]), \
-        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_1": np.array([1 - miu, -miu, -delta]), \
-        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_2": np.array([-miu, -miu, -delta]), \
-        "I": np.array([rho, 1 - rho, 0.5]), "Y_3": np.array([miu, miu - 1, delta]), \
+        "H": np.array([zeta, zeta, eta]), "Y": np.array([mu, mu, delta]), \
+        "H_1": np.array([1 - zeta, -zeta, 1 - eta]), "Y_1": np.array([1 - mu, -mu, -delta]), \
+        "H_2": np.array([-zeta, -zeta, 1 - eta]), "Y_2": np.array([-mu, -mu, -delta]), \
+        "I": np.array([rho, 1 - rho, 0.5]), "Y_3": np.array([mu, mu - 1, delta]), \
         "I_1": np.array([1 - rho, rho - 1, 0.5]), "Z": np.array([0.0, 0.0, 0.5]), \
         "L": np.array([0.5, 0.5, 0.5])}
         path = [['\Gamma', 'Y', 'F', 'L', 'I'], ['I_1', 'Z', 'H', 'F_1'], ['H_1', 'Y_1', 'X', '\Gamma', 'N'], ['M', '\Gamma']]
@@ -454,8 +466,8 @@ class HighSymmKpath(object):
         a1 = (a, 0, 0)
         a2 = (b*cos(γ), b*sin(γ), 0)
         a3 = (c*cos(β), c/sin(γ)*[cos(α)-cos(β)cos(γ)], c/sin(γ)*sqrt(sin(γ)**2-cos(α)**2-cos(β)**2+2*cos(α)*cos(β)*cos(γ)))"""
-    def tri_1a(self):
-        self.name = "TRI_1a"
+    def tria(self):
+        self.name = "TRI1a"
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "R": np.array([0.5, 0.5, 0.5]), \
         "L": np.array([0.5, 0.5, 0.0]), "X": np.array([0.5, 0.0, 0.0]), \
         "M": np.array([0.0, 0.5, 0.5]), "Y": np.array([0.0, 0.5, 0.0]), \
@@ -463,26 +475,8 @@ class HighSymmKpath(object):
         path = [['X', '\Gamma', 'Y'], ['L', '\Gamma', 'Z'], ['N', '\Gamma', 'M'], ['R', '\Gamma']]
         return {'kpoints': kpoints, 'path': path}
 
-    def tri_2a(self):
-        self.name = "TRI_2a"
-        kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "R": np.array([0.5, 0.5, 0.5]), \
-        "L": np.array([0.5, 0.5, 0.0]), "X": np.array([0.5, 0.0, 0.0]), \
-        "M": np.array([0.0, 0.5, 0.5]), "Y": np.array([0.0, 0.5, 0.0]), \
-        "N": np.array([0.5, 0.0, 0.5]), "Z": np.array([0.0, 0.0, 0.5])}
-        path = [['X', '\Gamma', 'Y'], ['L', '\Gamma', 'Z'], ['N', '\Gamma', 'M'], ['R', '\Gamma']]
-        return {'kpoints': kpoints, 'path': path}
-
-    def tri_1b(self):
-        self.name = "TRI_1b"
-        kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "R": np.array([0.0, -0.5, 0.5]), \
-        "L": np.array([0.5, -0.5, 0.0]), "X": np.array([0.0, -0.5, 0.0]), \
-        "M": np.array([0.0, 0.0, 0.5]), "Y": np.array([0.5, 0.0, 0.0]), \
-        "N": np.array([-0.5, -0.5, 0.5]), "Z": np.array([-0.5, 0.0, 0.5])}
-        path = [['X', '\Gamma', 'Y'], ['L', '\Gamma', 'Z'], ['N', '\Gamma', 'M'], ['R', '\Gamma']]
-        return {'kpoints': kpoints, 'path': path}
-
-    def tri_2b(self):
-        self.name = "TRI_2b"
+    def trib(self):
+        self.name = "TRI1b"
         kpoints = {"\Gamma": np.array([0.0, 0.0, 0.0]), "R": np.array([0.0, -0.5, 0.5]), \
         "L": np.array([0.5, -0.5, 0.0]), "X": np.array([0.0, -0.5, 0.0]), \
         "M": np.array([0.0, 0.0, 0.5]), "Y": np.array([0.5, 0.0, 0.0]), \

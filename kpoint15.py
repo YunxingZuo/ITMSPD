@@ -40,11 +40,7 @@ def trans_from_30_to_15(num_interval = 15):
             continue
 
 def Find_Kpoints_Path(Structure, criterion = 1e-8, num_interval = 30):
-    abc = Structure.lattice.lengths
-    angles = Structure.lattice.angles
-    crystal_system = Structure.get_crystal_system()
-    spg = Structure.get_spacegroup().split()[0]
-    hkp = HighSymmKpath(abc, angles, crystal_system, spg).high_symmetry_kpoints
+    hkp = HighSymmKpath(Structure).high_symmetry_kpoints
     kpoints = hkp['kpoints']
     path = hkp['path']
     points = []

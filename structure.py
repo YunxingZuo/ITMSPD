@@ -56,15 +56,6 @@ class Structure(object):
             self.__element_species.append(species)
             self.__num_per_species.append(len(list(atoms)))
 
-        tempt = None
-        for atom in self.__atoms:
-            if tempt != atom:
-                self.__element_species.append(atom)
-                self.__num_per_species.append(1)
-                tempt = atom
-            else:
-                self.__num_per_species[-1] += 1
-
         if name is None:
             name = ''.join('{:s}{:d} '.format(element.atomic_symbol,num) for element, num in zip(self.__element_species, self.__num_per_species))
         self.__name = name
@@ -227,6 +218,16 @@ class Structure(object):
                 if fabs(positions[i][j] - 1) < 0.01:
                     positions[i][j] = 0
         return Structure(vectors, positions, atomic_numbers)
+
+    def find_conventional_cell(self, symprec = 1e-5):
+        """
+        Find the conventional cell of the structure.
+
+        Returns:
+            Conventional cell as a Structure object.
+        """
+        t = spglib.refine_cell(self.as_tuple(), symprec = symprec)
+        return Structure(*t)
 
     def get_symmetry_dataset(self, symprec = 1e-1, angle_tolerance = 5):
         return spglib.get_symmetry_dataset(self.as_tuple(), symprec = symprec, angle_tolerance = angle_tolerance)
