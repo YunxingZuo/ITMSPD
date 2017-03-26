@@ -218,11 +218,17 @@ def permutate(spg_symbol, num_of_atom, symbol_of_atom, letter_candidates_symbols
             i[j] = symbol_of_atom
     return permutation, s
 
-def permutation_gen(spg_symbol, num_of_atoms, symbol_of_atoms, letter_candidates_symbols, letter_candidates_numbers):
+def permutation_gen(spg_symbol, num_of_atoms, symbol_of_atoms):
     """
     Return a tuple of a list of all permutations and according types of atoms (e.g., mapping 3 Li atoms, 3 Co atoms, 6 O atoms in the Wyckoff sites of spacegrop "R-3mH"
     will result in two permutations: ['a', 'b', 'c'] for ['Li', 'Co', 'O'] and ['b', 'a', 'c'] for ['Li', 'Co', 'O'])
     """
+    if not spg_symbol in sp_dict.keys():
+        raise ValueError("Bad international symbol {:s}".format(spg_symbol))
+    if len(symbol_of_atoms) != len(num_of_atoms):
+        raise IndexError("Wrong symbol list was input!")
+    letter_candidates_symbols = sp_dict[spg_symbol].keys()
+    letter_candidates_numbers = sp_dict[spg_symbol].values()
     letters = []
     letters_permutation, symbols_permutation = permutate(spg_symbol, num_of_atoms.pop(0), symbol_of_atoms.pop(0), letter_candidates_symbols, letter_candidates_numbers, letters)
     while num_of_atoms:
@@ -243,7 +249,5 @@ def permutation_gen(spg_symbol, num_of_atoms, symbol_of_atoms, letter_candidates
 
 
 def test():
-    letter_candidates_symbols = sp_dict['R-3mH'].keys()
-    letter_candidates_numbers = sp_dict['R-3mH'].values()
-    letter_permutation, symbol_permutation = permutation_gen('R-3mH', [3, 3, 6], ['Li', 'Co', 'O'], letter_candidates_symbols, letter_candidates_numbers)
+    letter_permutation, symbol_permutation = permutation_gen('R-3mH', [3, 3, 6], ['Li', 'Co', 'O'])
     return letter_permutation, symbol_permutation
