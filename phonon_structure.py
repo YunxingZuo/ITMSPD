@@ -7,9 +7,9 @@ import itertools
 
 from lattice import Lattice
 from element import Element
-from wycoffs import *
-from wykoffsss import *
-from Symmetry_Operation import *
+from wyckoff_letter_confirm import special_positions
+from wyckoff_positions_gen import pos_gen_wyckoff_positions
+from Symmetry_Operation import special_positions
 from groups import SpaceGroup
 import spglib
 

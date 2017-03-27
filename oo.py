@@ -7,8 +7,7 @@ import urllib
 import json
 from sp_dict import sp_dict
 from monty.serialization import loadfn
-from wyckoffss import *
-from structure import *
+from structure import Structure
 
 __author__ = 'YunXing Zuo'
 __email__ = 'zuoyx@pkusz.edu.cn'

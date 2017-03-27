@@ -3,7 +3,6 @@
 import numpy as np
 from numpy.random import uniform, rand
 from heiheihei import *
-from wyckoffss import *
 
 bv_dict = {'Ag1': {'O-2': 1.805, 'S-2': 2.119, 'F-1': 1.80, 'Cl-1': 2.09}, \
            'Al3': {'O-2': 1.651, 'S-2': 2.13, 'Se-2': 2.27, 'Te-2': 2.48, 'F-1': 1.545, 'Cl-1': 2.032, 'Br-1': 2.20, 'I-1': 2.41, 'N-3': 1.79, 'P-3': 2.24, 'As-3': 2.30, 'H-1': 1.45}, \

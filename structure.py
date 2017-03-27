@@ -7,9 +7,9 @@ import itertools
 
 from lattice import Lattice
 from element import Element
-from wycoffs import *
-from wykoffsss import *
-from Symmetry_Operation import *
+from wyckoff_letter_confirm import special_positions
+from wyckoff_positions_gen import pos_gen_wyckoff_positions
+from Symmetry_Operation import SymmOp
 from groups import SpaceGroup
 import spglib
 
@@ -269,31 +269,31 @@ class Structure(object):
     def get_identical_atoms_and_operations(self, additional_symmetry_operations = None, symprec = 1):
         lattice_vectors = self.lattice_vectors
         scaled_positions = self.frac_positions
-        # rotations = self.get_symmetry_operations(symprec = symprec)['rotations']
-        # translations = self.get_symmetry_operations(symprec = symprec)['translations']
-        # if not additional_symmetry_operations is None:
-            # for add_symmop in additional_symmetry_operations:
-                # ro = add_symmop.rotation_matrix.reshape(1, 3, 3)
-                # tran = add_symmop.translation_vector.reshape(1, 3)
-                # rotations = np.append(rotations, ro, axis = 0)
-                # translations = np.append(translations, tran, axis = 0)
-        # identical_atoms = [i for i in range(self.number_of_atoms)]
-        # identical_operations = {}
-        # for i, p in enumerate(scaled_positions):
-            # is_found = False
-            # for j in range(i):
-                # for r, t in zip(rotations, translations):
-                    # symmop = SymmOp.rotations_combine_translations(r, t)
-                    # is_found = symmop.whether_symmetrical(p, scaled_positions[j], lattice_vectors)
-                    # if is_found:
-                        # identical_atoms[i] = j
-                        # key = '{}->{}'.format(i, j)
-                        # value = symmop.affine_matrix
-                        # identical_operations[key] = value
-                        # break
-                # if is_found:
-                    # break
-        # return np.array(identical_atoms, dtype='intc'), identical_operations
+        rotations = self.get_symmetry_operations(symprec = symprec)['rotations']
+        translations = self.get_symmetry_operations(symprec = symprec)['translations']
+        if not additional_symmetry_operations is None:
+            for add_symmop in additional_symmetry_operations:
+                ro = add_symmop.rotation_matrix.reshape(1, 3, 3)
+                tran = add_symmop.translation_vector.reshape(1, 3)
+                rotations = np.append(rotations, ro, axis = 0)
+                translations = np.append(translations, tran, axis = 0)
+        identical_atoms = [i for i in range(self.number_of_atoms)]
+        identical_operations = {}
+        for i, p in enumerate(scaled_positions):
+            is_found = False
+            for j in range(i):
+                for r, t in zip(rotations, translations):
+                    symmop = SymmOp.rotations_combine_translations(r, t)
+                    is_found = symmop.whether_symmetrical(p, scaled_positions[j], lattice_vectors)
+                    if is_found:
+                        identical_atoms[i] = j
+                        key = '{}->{}'.format(i, j)
+                        value = symmop.affine_matrix
+                        identical_operations[key] = value
+                        break
+                if is_found:
+                    break
+        return np.array(identical_atoms, dtype='intc'), identical_operations
         return self.get_symmetry_dataset()['equivalent_atoms']
 
     def get_independent_atoms(self, additional_symmetry_operations = None, symprec = 1):
@@ -305,15 +305,15 @@ class Structure(object):
         return np.array(indep_atoms, dtype='intc')
 
     def atomic_wyckoff_letters(self, tol = 5e-4):
-        # identical_atoms = self.get_identical_atoms_and_operations()[0]
-        # independent_atoms = self.get_independent_atoms()
-        # scaled_positions = self.frac_positions
-        # spg = SpaceGroup(self.get_spacegroup())
-        # spg_int = spg.int_number
-        # wyckoff_letters = np.array([''] * len(identical_atoms))
-        # for i in independent_atoms:
-            # letter = spg.get_wyckoff_letter(scaled_positions[i], tol = tol)
-            # wyckoff_letters[identical_atoms == i] = letter
+        identical_atoms = self.get_identical_atoms_and_operations()[0]
+        independent_atoms = self.get_independent_atoms()
+        scaled_positions = self.frac_positions
+        spg = SpaceGroup(self.get_spacegroup())
+        spg_int = spg.int_number
+        wyckoff_letters = np.array([''] * len(identical_atoms))
+        for i in independent_atoms:
+            letter = spg.get_wyckoff_letter(scaled_positions[i], tol = tol)
+            wyckoff_letters[identical_atoms == i] = letter
         return self.get_symmetry_dataset()['wyckoffs']
 
     def to_dict(self):

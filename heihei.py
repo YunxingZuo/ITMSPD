@@ -4,9 +4,9 @@
 import numpy as np
 from copy import deepcopy
 from itertools import product
-from structure import *
-from sss_specific import *
-from sp_dict import *
+from structure import Structure
+from wyckoff_positions_gen import pos_gen_wyckoff_positions
+from sp_dict import sp_dict
 
 __author__ = 'YunXing Zuo'
 __email__ = 'zuoyx@pkusz.edu.cn'
