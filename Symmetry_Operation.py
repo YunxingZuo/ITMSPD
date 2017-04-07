@@ -52,6 +52,20 @@ class SymmOp(object):
         affine_points = np.concatenate([points, np.ones(points.shape[:-1] + (1,))], axis = -1)
         return np.inner(affine_points, self.affine_matrix)[:, :-1]
 
+    # something tricky in the application of the rotation_matrix on the tensor
+    def transform_tensor(self, tensor):
+        dim = tensor.shape
+        rank = len(dim)
+        assert all([i == 3 for i in dim])
+        # Build einstein sum string
+        lc = string.ascii_lowercase
+        indices = lc[:rank], lc[rank:2 * rank]
+        einsum_string = ','.join([a + i for a, i in zip(*indices)])
+        einsum_string += ',{}->{}'.format(*indices[::-1])
+        einsum_args = [self.rotation_matrix] * rank + [tensor]
+
+        return np.einsum(einsum_string, *einsum_args)
+
     # check if two points are identical
     def whether_symmetrical(self, point_a, point_b, lattice_constant, symprec = 1e-3):
         diff = self.operate(point_a) - point_b
@@ -91,7 +105,7 @@ class SymmOp(object):
         R[2, 1] = v * w * (1 - cos_theta) + u * sin_theta
         R[2, 2] = cos_theta + w ** 2 * (1 - cos_theta)
 
-        return SymmOp.axis_angle_and_translation(R, vec)
+        return SymmOp.rotations_combine_translations(R, vec)
 
     @staticmethod
     def origin_axis_and_angle(origin, axis, angle, angle_in_radius=False):
